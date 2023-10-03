@@ -124,7 +124,7 @@ func runIntegrityChecks() (res result) {
 	var err error
 	var uploaded, downloaded, removed, pruned int64
 	var downloadedMBPS, uploadedMBPS float64
-	var pruneElapsedTime time.Duration
+	var pruneDuration time.Duration
 	var complete bool
 	defer func(start time.Time) {
 		res = result{
@@ -138,7 +138,7 @@ func runIntegrityChecks() (res result) {
 
 			DownloadSpeedMBPS: downloadedMBPS,
 			UploadSpeedMBPS:   uploadedMBPS,
-			PruneElapsedTime:  pruneElapsedTime,
+			PruneDurationStr:  pruneDuration.String(),
 
 			DatasetComplete: complete,
 		}
@@ -179,7 +179,7 @@ func runIntegrityChecks() (res result) {
 	downloadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 
 	// delete data
-	removed, pruned, pruneElapsedTime, err = pruneDataset(size)
+	removed, pruned, pruneDuration, err = pruneDataset(size)
 	if err != nil {
 		err = fmt.Errorf("failed to prune the dataset; %w", err)
 		return
