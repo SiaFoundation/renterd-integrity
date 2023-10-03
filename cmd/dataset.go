@@ -23,6 +23,7 @@ const (
 
 	defaultChunkSize = int64(1 << 26) // 64 MiB
 
+	defaultPruneTimeout = 30 * time.Minute
 )
 
 func ensureDataset(want int64) (added, removed int64, _ error) {
@@ -131,8 +132,21 @@ func pruneDataset(size int64) (removed, pruned int64, err error) {
 	}
 
 	for _, contract := range prunable.Contracts {
-		_ = contract
-		// TODO: prune
+		if err = func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*defaultPruneTimeout)
+			defer cancel()
+
+			ppruned, remaining, err := wc.RHPPruneContract(ctx, contract.ID, defaultPruneTimeout)
+			if err != nil {
+				return err
+			}
+			pruned += int64(ppruned)
+
+			logger.Debugf("pruned %v bytes from contract %v, %v bytes remaining", ppruned, contract.ID, remaining)
+			return nil
+		}(); err != nil {
+			return
+		}
 	}
 	return
 }

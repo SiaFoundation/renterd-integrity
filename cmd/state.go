@@ -28,8 +28,8 @@ type (
 		DownloadSpeedMBPS float64 `json:"downloadSpeedMBPS,omitempty"`
 		UploadSpeedMBPS   float64 `json:"uploadSpeedMBPS,omitempty"`
 
-		DatasetComplete bool      `json:"datasetComplete"`
-		Err             resultErr `json:"error,omitempty"`
+		DatasetComplete bool       `json:"datasetComplete"`
+		Err             *resultErr `json:"error,omitempty"`
 	}
 
 	resultErr struct {
@@ -92,6 +92,13 @@ func loadState(path string) (s *state, _ error) {
 		return nil, err
 	}
 	return
+}
+
+func (r result) Error() error {
+	if r.Err != nil {
+		return r.Err.Err
+	}
+	return nil
 }
 
 func (e *resultErr) MarshalJSON() ([]byte, error) {

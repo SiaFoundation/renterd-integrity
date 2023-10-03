@@ -139,7 +139,9 @@ func runIntegrityChecks() (res result) {
 			UploadSpeedMBPS:   uploadedMBPS,
 
 			DatasetComplete: complete,
-			Err:             resultErr{err},
+		}
+		if err != nil {
+			res.Err = &resultErr{err}
 		}
 	}(time.Now())
 
@@ -186,7 +188,7 @@ func runIntegrityChecks() (res result) {
 func registerAlert(res result) error {
 	// set severity level
 	severity := alerts.SeverityInfo
-	if errors.Is(res.Err.Err, errIntegrity) {
+	if err := res.Error(); errors.Is(err, errIntegrity) {
 		severity = alerts.SeverityCritical
 	}
 
@@ -197,8 +199,8 @@ func registerAlert(res result) error {
 
 	// set message
 	msg := "integrity check completed successfully"
-	if res.Err.Err != nil {
-		msg = fmt.Sprintf("integrity check failed, err: %v", res.Err.Err)
+	if err := res.Error(); err != nil {
+		msg = fmt.Sprintf("integrity check failed, err: %v", err)
 	}
 
 	// create alert
