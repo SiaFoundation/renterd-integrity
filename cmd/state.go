@@ -25,8 +25,9 @@ type (
 		Removed    string `json:"removed,omitempty"`
 		Pruned     string `json:"pruned,omitempty"`
 
-		DownloadSpeedMBPS float64 `json:"downloadSpeedMBPS,omitempty"`
-		UploadSpeedMBPS   float64 `json:"uploadSpeedMBPS,omitempty"`
+		DownloadSpeedMBPS float64       `json:"downloadSpeedMBPS,omitempty"`
+		UploadSpeedMBPS   float64       `json:"uploadSpeedMBPS,omitempty"`
+		PruneElapsedTime  time.Duration `json:"pruneElapsedTime,omitempty"`
 
 		DatasetComplete bool       `json:"datasetComplete"`
 		Err             *resultErr `json:"error,omitempty"`

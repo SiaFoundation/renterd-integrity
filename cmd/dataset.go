@@ -106,11 +106,16 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 	return
 }
 
-func pruneDataset(size int64) (removed, pruned int64, err error) {
+func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err error) {
 	entries, err := calculateRandomBatch(size)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
+
+	// set elapsed
+	defer func(start time.Time) {
+		elapsed = time.Since(start)
+	}(time.Now())
 
 	// remove the data
 	for _, entry := range entries {
@@ -132,6 +137,8 @@ func pruneDataset(size int64) (removed, pruned int64, err error) {
 	}
 
 	for _, contract := range prunable.Contracts {
+		start := time.Now()
+		logger.Debugf("pruning contract %+v", contract)
 		if err = func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*defaultPruneTimeout)
 			defer cancel()
@@ -145,6 +152,7 @@ func pruneDataset(size int64) (removed, pruned int64, err error) {
 			logger.Debugf("pruned %v bytes from contract %v, %v bytes remaining", ppruned, contract.ID, remaining)
 			return nil
 		}(); err != nil {
+			logger.Debugf("pruning contract %v failed after %v, err %v", contract.ID, time.Since(start), err)
 			return
 		}
 	}
