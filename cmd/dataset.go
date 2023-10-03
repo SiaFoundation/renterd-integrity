@@ -56,7 +56,7 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 	}
 
 	// add missing data if necessary
-	if got < want {
+	if removed == 0 && got < want {
 		logger.Infof("ensuring data set size matches %s - adding %s", humanReadableSize(want), humanReadableSize(want-got))
 
 		// fetch the redundancy settings
