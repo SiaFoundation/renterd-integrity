@@ -70,7 +70,7 @@ func main() {
 	if cfg.CleanStart {
 		logger.Infof("remove all files from %s/", cfg.WorkDir)
 		if err := withSaneTimeout(func(ctx context.Context) error {
-			return bc.DeleteObject(ctx, cfg.WorkDir, true)
+			return bc.DeleteObject(ctx, api.DefaultBucketName, cfg.WorkDir, true)
 		}, nil); err != nil && !strings.Contains(err.Error(), api.ErrObjectNotFound.Error()) {
 			logger.Fatal(err)
 		}

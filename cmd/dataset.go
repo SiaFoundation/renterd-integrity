@@ -41,7 +41,7 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 		}
 		for _, entry := range toRemove {
 			if err = withSaneTimeout(func(ctx context.Context) error {
-				return bc.DeleteObject(ctx, entry.Name, false)
+				return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false)
 			}, nil); err != nil {
 				return
 			} else {
@@ -114,7 +114,7 @@ func pruneDataset(size int64) (removed, pruned int64, err error) {
 	// remove the data
 	for _, entry := range entries {
 		if err = withSaneTimeout(func(ctx context.Context) (err error) {
-			return bc.DeleteObject(ctx, entry.Name, false)
+			return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false)
 		}, nil); err != nil {
 			return
 		}
@@ -171,7 +171,7 @@ func calculateRandomBatch(size int64) (batch []api.ObjectMetadata, _ error) {
 // TODO: this fetches all entries, which is not ideal
 func fetchEntries() (entries []api.ObjectMetadata, err error) {
 	err = withSaneTimeout(func(ctx context.Context) (err error) {
-		entries, err = bc.SearchObjects(ctx, cfg.WorkDir, 0, -1)
+		entries, err = bc.SearchObjects(ctx, api.DefaultBucketName, cfg.WorkDir, 0, -1)
 		return
 	}, nil)
 	return
@@ -268,7 +268,8 @@ func uploadFile(size int64) (path string, err error) {
 
 	// upload the file
 	err = withSaneTimeout(func(ctx context.Context) error {
-		return wc.UploadObject(ctx, f, path)
+		_, err := wc.UploadObject(ctx, f, path)
+		return err
 	}, &totalSize)
 	return
 }
