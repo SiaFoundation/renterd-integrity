@@ -297,12 +297,14 @@ func uploadFile(size int64) (path string, err error) {
 }
 
 func downloadFile(path string, size int64) (_ string, err error) {
-	logger.Debugf("downloading %v", humanReadableSize(size))
+	logger.Debugf("downloading file %v (%v)", path, humanReadableSize(size))
 	start := time.Now()
 	defer func() {
 		if err == nil {
 			elapsed := time.Since(start)
 			logger.Debugf("downloaded file %v in %v (%v mbps)", path, elapsed, mbps(int64(float64(size)*rs.Redundancy()), elapsed.Milliseconds()))
+		} else {
+			err = fmt.Errorf("download failed %v, err: %w", path, err)
 		}
 	}()
 
