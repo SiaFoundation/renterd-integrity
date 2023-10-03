@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"time"
@@ -23,8 +25,15 @@ type (
 		Removed    string `json:"removed,omitempty"`
 		Pruned     string `json:"pruned,omitempty"`
 
-		DatasetComplete bool   `json:"datasetComplete"`
-		Err             string `json:"error,omitempty"`
+		DownloadSpeedMBPS float64 `json:"downloadSpeedMBPS,omitempty"`
+		UploadSpeedMBPS   float64 `json:"uploadSpeedMBPS,omitempty"`
+
+		DatasetComplete bool      `json:"datasetComplete"`
+		Err             resultErr `json:"error,omitempty"`
+	}
+
+	resultErr struct {
+		Err error
 	}
 )
 
@@ -42,6 +51,17 @@ func saveState(s *state, path string) error {
 		return fmt.Errorf("failed to open state file at '%s', err: %v", path, err)
 	}
 	defer f.Close()
+
+	// trim the results
+	if len(s.Results) > 30 {
+		s.Results = s.Results[:30]
+	}
+
+	// update overall OK status
+	s.Ok = true
+	for _, res := range s.Results {
+		s.Ok = s.Ok && res.Err.Err == nil
+	}
 
 	// encode the state
 	enc := json.NewEncoder(f)
@@ -66,8 +86,29 @@ func loadState(path string) (s *state, _ error) {
 
 	// decode the state
 	dec := json.NewDecoder(f)
-	if err := dec.Decode(&s); err != nil {
+	if err := dec.Decode(&s); err != nil && errors.Is(err, io.EOF) {
+		return &state{}, nil
+	} else if err != nil {
 		return nil, err
 	}
 	return
+}
+
+func (e *resultErr) MarshalJSON() ([]byte, error) {
+	var errStr string
+	if e.Err != nil {
+		errStr = e.Err.Error()
+	}
+	return json.Marshal(errStr)
+}
+
+func (e *resultErr) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if str != "" {
+		e.Err = errors.New(str)
+	}
+	return nil
 }

@@ -21,11 +21,11 @@ const (
 
 	dataExtension = ".data"
 
-	defaultChunkSize = 1 << 26 // 64 MiB
+	defaultChunkSize = int64(1 << 26) // 64 MiB
 
 )
 
-func ensureDataset(want int) (added, removed int, _ error) {
+func ensureDataset(want int64) (added, removed int64, _ error) {
 	// calculate size of the current set
 	got, err := calculateDatasetSize()
 	if err != nil {
@@ -45,7 +45,7 @@ func ensureDataset(want int) (added, removed int, _ error) {
 			}, nil); err != nil {
 				return
 			} else {
-				removed += int(entry.Size)
+				removed += entry.Size
 			}
 		}
 		got, err = calculateDatasetSize()
@@ -68,7 +68,7 @@ func ensureDataset(want int) (added, removed int, _ error) {
 		}
 
 		// take into account redundancy in the return value
-		defer func() { added *= int(rs.Redundancy()) }()
+		defer func() { added = int64(float64(added) * rs.Redundancy()) }()
 
 		// find out how much data we are missing
 		missing := want - got
@@ -78,13 +78,13 @@ func ensureDataset(want int) (added, removed int, _ error) {
 
 		for {
 			// calculate a random file size between our min and max
-			max := int(math.Min(float64(missing), float64(cfg.MaxFilesize)))
-			min := int(cfg.MinFilesize)
+			max := int64(math.Min(float64(missing), float64(cfg.MaxFilesize)))
+			min := int64(cfg.MinFilesize)
 
 			// round to the nearest chunk size
 			size := max
 			if max > min {
-				size = frand.Intn(max-min) + min
+				size = int64(frand.Intn(int(max-min))) + min
 			}
 
 			// upload the file
@@ -105,7 +105,7 @@ func ensureDataset(want int) (added, removed int, _ error) {
 	return
 }
 
-func pruneDataset(size int) (removed, pruned int, err error) {
+func pruneDataset(size int64) (removed, pruned int64, err error) {
 	entries, err := calculateRandomBatch(size)
 	if err != nil {
 		return 0, 0, err
@@ -118,7 +118,7 @@ func pruneDataset(size int) (removed, pruned int, err error) {
 		}, nil); err != nil {
 			return
 		}
-		removed += int(entry.Size)
+		removed += entry.Size
 	}
 
 	// prune the contracts
@@ -137,19 +137,19 @@ func pruneDataset(size int) (removed, pruned int, err error) {
 	return
 }
 
-func calculateDatasetSize() (size int, _ error) {
+func calculateDatasetSize() (size int64, _ error) {
 	entries, err := fetchEntries()
 	if err != nil {
 		return 0, err
 	}
 
 	for _, entry := range entries {
-		size += int(entry.Size)
+		size += entry.Size
 	}
 	return
 }
 
-func calculateRandomBatch(size int) (batch []api.ObjectMetadata, _ error) {
+func calculateRandomBatch(size int64) (batch []api.ObjectMetadata, _ error) {
 	entries, err := fetchEntries()
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func calculateRandomBatch(size int) (batch []api.ObjectMetadata, _ error) {
 	})
 	for _, entry := range entries {
 		batch = append(batch, entry)
-		size -= int(entry.Size)
+		size -= entry.Size
 		if size <= 0 {
 			break
 		}
@@ -177,7 +177,7 @@ func fetchEntries() (entries []api.ObjectMetadata, err error) {
 	return
 }
 
-func createRandomFile(size int) (_ string, err error) {
+func createRandomFile(size int64) (_ string, err error) {
 	tmp := cfg.buildTmpFilepath()
 
 	var f *os.File
@@ -200,7 +200,7 @@ func createRandomFile(size int) (_ string, err error) {
 	chunkSize := defaultChunkSize
 	remainging := size
 	if remainging < chunkSize {
-		chunkSize = int(remainging)
+		chunkSize = remainging
 	}
 
 	chunk := make([]byte, chunkSize)
@@ -220,7 +220,7 @@ func createRandomFile(size int) (_ string, err error) {
 			return
 		}
 
-		remainging -= len(chunk)
+		remainging -= int64(len(chunk))
 	}
 
 	dst := cfg.buildHashFilepath(h)
@@ -232,14 +232,14 @@ func createRandomFile(size int) (_ string, err error) {
 	return dst, nil
 }
 
-func uploadFile(size int) (path string, err error) {
-	totalSize := int(float64(size) * rs.Redundancy())
+func uploadFile(size int64) (path string, err error) {
+	totalSize := int64(float64(size) * rs.Redundancy())
 	logger.Debugf("uploading %v", humanReadableSize(size))
 	start := time.Now()
 	defer func() {
 		if err == nil {
 			elapsed := time.Since(start)
-			logger.Debugf("uploaded file to %v in %v (%v mbps)", path, elapsed, mbps(totalSize, elapsed.Seconds()))
+			logger.Debugf("uploaded file to %v in %v (%v mbps)", path, elapsed, mbps(totalSize, elapsed.Milliseconds()))
 		}
 	}()
 
@@ -273,13 +273,13 @@ func uploadFile(size int) (path string, err error) {
 	return
 }
 
-func downloadFile(path string, size int) (_ string, err error) {
+func downloadFile(path string, size int64) (_ string, err error) {
 	logger.Debugf("downloading %v", humanReadableSize(size))
 	start := time.Now()
 	defer func() {
 		if err == nil {
 			elapsed := time.Since(start)
-			logger.Debugf("downloaded file %v in %v (%v mbps)", path, elapsed, mbps(int(float64(size)*rs.Redundancy()), elapsed.Seconds()))
+			logger.Debugf("downloaded file %v in %v (%v mbps)", path, elapsed, mbps(int64(float64(size)*rs.Redundancy()), elapsed.Milliseconds()))
 		}
 	}()
 
@@ -332,7 +332,7 @@ func downloadFile(path string, size int) (_ string, err error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func checkIntegrity(size int) (downloaded int, err error) {
+func checkIntegrity(size int64) (downloaded int64, err error) {
 	logger.Debugf("checking integrity of %v files", humanReadableSize(size))
 	toDownload, err := calculateRandomBatch(size)
 	if err != nil {
@@ -341,12 +341,12 @@ func checkIntegrity(size int) (downloaded int, err error) {
 
 	for _, entry := range toDownload {
 		var hash string
-		hash, err = downloadFile(entry.Name, int(entry.Size))
+		hash, err = downloadFile(entry.Name, entry.Size)
 		if err != nil {
 			return
 		}
 
-		downloaded += int(entry.Size)
+		downloaded += entry.Size
 		expected := strings.TrimSuffix(filepath.Base(entry.Name), dataExtension)
 		if hash != expected {
 			err = fmt.Errorf("hash mismatch for file '%v', expected '%v', got '%v'; %w", entry.Name, expected, hash, errIntegrity)

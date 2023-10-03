@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.sia.tech/core/types"
 	"go.sia.tech/renterd/alerts"
 	"go.sia.tech/renterd/api"
 	"go.sia.tech/renterd/bus"
@@ -98,13 +97,10 @@ func run(cfg config, s *state, stopChan chan struct{}) {
 	for {
 		if s.timeSinceLastIntegrityCheck() > cfg.IntegrityCheckInterval {
 			res := runIntegrityChecks()
-			if strings.Contains(res.Err, errIntegrity.Error()) {
-				if err := registerAlert(randomID(), res.Err); err != nil {
-					logger.Errorf("failed to register alert err: %v", err)
-				}
+			if err := registerAlert(res); err != nil {
+				logger.Warnf("failed to register alert, err: %v", err)
 			}
 
-			s.Ok = s.Ok && res.Err == ""
 			s.Results = append([]result{res}, s.Results...)
 			if err := saveState(s, defaultStateFile); err != nil {
 				logger.Errorf("failed to save state, err: %v", err)
@@ -122,15 +118,14 @@ func run(cfg config, s *state, stopChan chan struct{}) {
 }
 
 func runIntegrityChecks() (res result) {
-	start := time.Now()
-
 	logger.Info("running integrity checks")
 
 	// defer building the result
 	var err error
-	var uploaded, downloaded, removed, pruned int
+	var uploaded, downloaded, removed, pruned int64
+	var downloadedMBPS, uploadedMBPS float64
 	var complete bool
-	defer func() {
+	defer func(start time.Time) {
 		res = result{
 			StartedAt: start.UTC(),
 			EndedAt:   time.Now().UTC(),
@@ -140,12 +135,13 @@ func runIntegrityChecks() (res result) {
 			Removed:    humanReadableSize(removed),
 			Pruned:     humanReadableSize(pruned),
 
+			DownloadSpeedMBPS: downloadedMBPS,
+			UploadSpeedMBPS:   uploadedMBPS,
+
 			DatasetComplete: complete,
+			Err:             resultErr{err},
 		}
-		if err != nil {
-			res.Err = err.Error()
-		}
-	}()
+	}(time.Now())
 
 	// update redundancy
 	if err = withSaneTimeout(func(ctx context.Context) error {
@@ -157,22 +153,26 @@ func runIntegrityChecks() (res result) {
 	}
 
 	// ensure our dataset matches requested size
+	start := time.Now()
 	uploaded, _, err = ensureDataset(cfg.DatasetSize)
 	if err != nil {
 		err = fmt.Errorf("failed to ensure dataset; %w", err)
 		return
 	}
+	uploadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 	complete = true
 
-	size := int(cfg.IntegrityCheckCyclePct * float64(cfg.DatasetSize))
+	size := int64(cfg.IntegrityCheckCyclePct * float64(cfg.DatasetSize))
 	logger.Infof("checking integrity of %d%% of our dataset (%v)", int(cfg.IntegrityCheckCyclePct*100), humanReadableSize(size))
 
 	// check integrity of a portion of the dataset
+	start = time.Now()
 	downloaded, err = checkIntegrity(size)
 	if err != nil {
 		err = fmt.Errorf("failed to check integrity of the dataset; %w", err)
 		return
 	}
+	downloadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 
 	// delete data
 	removed, pruned, err = pruneDataset(size)
@@ -183,18 +183,34 @@ func runIntegrityChecks() (res result) {
 	return
 }
 
-func registerAlert(id types.Hash256, msg string) error {
+func registerAlert(res result) error {
+	// set severity level
+	severity := alerts.SeverityInfo
+	if errors.Is(res.Err.Err, errIntegrity) {
+		severity = alerts.SeverityCritical
+	}
+
+	// set data source
 	data := make(map[string]any)
 	data["source"] = "renterd-integrity"
+	data["result"] = res
 
+	// set message
+	msg := "integrity check completed successfully"
+	if res.Err.Err != nil {
+		msg = fmt.Sprintf("integrity check failed, err: %v", res.Err.Err)
+	}
+
+	// create alert
 	alert := alerts.Alert{
-		ID:        id,
-		Severity:  alerts.SeverityCritical,
+		ID:        randomID(),
+		Severity:  severity,
 		Message:   msg,
 		Data:      data,
 		Timestamp: time.Now(),
 	}
-	logger.Warnf("registered alert: %v", alert.Message)
+
+	logger.Debugf("registered alert: %v", alert.Message)
 	return withSaneTimeout(func(ctx context.Context) error {
 		return bc.RegisterAlert(ctx, alert)
 	}, nil)

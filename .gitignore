@@ -1,3 +1,5 @@
 data/
 integrity
 config.yml
+checker.log
+integrity.json

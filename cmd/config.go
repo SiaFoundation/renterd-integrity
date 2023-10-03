@@ -41,9 +41,9 @@ type (
 		IntegrityCheckInterval time.Duration `yaml:"integrityCheckInterval"`
 		IntegrityCheckCyclePct float64       `yaml:"integrityCheckCyclePct"`
 
-		DatasetSize int `yaml:"datasetSize"`
-		MinFilesize int `yaml:"minFilesize"`
-		MaxFilesize int `yaml:"maxFilesize"`
+		DatasetSize int64 `yaml:"datasetSize"`
+		MinFilesize int64 `yaml:"minFilesize"`
+		MaxFilesize int64 `yaml:"maxFilesize"`
 
 		CleanStart bool   `yaml:"cleanStart"`
 		WorkDir    string `yaml:"workDir"`

@@ -11,7 +11,7 @@ import (
 	"lukechampine.com/frand"
 )
 
-func withSaneTimeout(fn func(ctx context.Context) error, size *int) error {
+func withSaneTimeout(fn func(ctx context.Context) error, size *int64) error {
 	timeout := time.Minute // min
 
 	// if we have a size, calculate the timeout based on the size, we use a
@@ -32,7 +32,7 @@ func withSaneTimeout(fn func(ctx context.Context) error, size *int) error {
 	return fn(ctx)
 }
 
-func humanReadableSize(b int) string {
+func humanReadableSize(b int64) string {
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
@@ -45,9 +45,9 @@ func humanReadableSize(b int) string {
 	return fmt.Sprintf("%d bytes (%.1f %ciB)", b, float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-func mbps(b int, s float64) float64 {
-	bps := float64(b) / s
-	return math.Round(bps*0.000008*100) / 100
+func mbps(b, ms int64) float64 {
+	bpms := float64(b) / float64(ms)
+	return math.Round(bpms*0.008*100) / 100
 }
 
 func randomString() string {
