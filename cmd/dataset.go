@@ -23,11 +23,12 @@ const (
 
 	defaultChunkSize = int64(1 << 26) // 64 MiB
 
-	defaultPruneTimeout = 30 * time.Minute
+	defaultPruneTimeout = 10 * time.Minute
 )
 
 var (
-	errNoRouteToHost = errors.New("no route to host")
+	errInvalidMerkleProof = errors.New("host supplied invalid Merkle proof")
+	errNoRouteToHost      = errors.New("no route to host")
 )
 
 func ensureDataset(want int64) (added, removed int64, _ error) {
@@ -157,7 +158,8 @@ func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err
 			return nil
 		}(); err != nil {
 			logger.Debugf("pruning contract %v failed after %v, err %v", contract.ID, time.Since(start), err)
-			if strings.Contains(err.Error(), errNoRouteToHost.Error()) {
+			if strings.Contains(err.Error(), errInvalidMerkleProof.Error()) ||
+				strings.Contains(err.Error(), errNoRouteToHost.Error()) {
 				continue
 			}
 			return
