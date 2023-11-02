@@ -28,6 +28,7 @@ const (
 
 var (
 	errConnectionRefused  = errors.New("connection refused")
+	errConnectionTimedOut = errors.New("connection timed out")
 	errInvalidMerkleProof = errors.New("host supplied invalid Merkle proof")
 	errNoRouteToHost      = errors.New("no route to host")
 )
@@ -160,6 +161,7 @@ func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err
 		}(); err != nil {
 			logger.Debugf("pruning contract %v failed after %v, err %v", contract.ID, time.Since(start), err)
 			if isErr(err, errConnectionRefused) ||
+				isErr(err, errConnectionTimedOut) ||
 				isErr(err, errInvalidMerkleProof) ||
 				isErr(err, errNoRouteToHost) {
 				continue
