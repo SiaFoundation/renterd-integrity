@@ -61,7 +61,7 @@ func saveState(s *state, path string) error {
 	// update overall OK status
 	s.Ok = true
 	for _, res := range s.Results {
-		s.Ok = s.Ok && res.Err.Err == nil
+		s.Ok = s.Ok && res.Err == nil
 	}
 
 	// encode the state
