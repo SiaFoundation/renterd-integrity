@@ -31,6 +31,7 @@ var (
 	errConnectionTimedOut = errors.New("connection timed out")
 	errInvalidMerkleProof = errors.New("host supplied invalid Merkle proof")
 	errNoRouteToHost      = errors.New("no route to host")
+	errNoSuchHost         = errors.New("no such host")
 )
 
 func ensureDataset(want int64) (added, removed int64, _ error) {
@@ -163,7 +164,8 @@ func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err
 			if isErr(err, errConnectionRefused) ||
 				isErr(err, errConnectionTimedOut) ||
 				isErr(err, errInvalidMerkleProof) ||
-				isErr(err, errNoRouteToHost) {
+				isErr(err, errNoRouteToHost) ||
+				isErr(err, errNoSuchHost) {
 				continue
 			}
 			return
