@@ -38,6 +38,7 @@ type (
 		WorkerAddr  string `yaml:"workerAddress"`
 		WorkerPassw string `yaml:"workerPassword"`
 
+		HealthCheckInterval    time.Duration `yaml:"healthCheckInterval"`
 		IntegrityCheckInterval time.Duration `yaml:"integrityCheckInterval"`
 		IntegrityCheckCyclePct float64       `yaml:"integrityCheckCyclePct"`
 

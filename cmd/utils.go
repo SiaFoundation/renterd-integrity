@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"go.sia.tech/core/types"
@@ -62,11 +60,4 @@ func randomID() types.Hash256 {
 	var id types.Hash256
 	_, _ = frand.Read(id[:])
 	return id
-}
-
-func isErr(err error, target error) bool {
-	if errors.Is(err, target) {
-		return true
-	}
-	return err != nil && target != nil && strings.Contains(err.Error(), target.Error())
 }

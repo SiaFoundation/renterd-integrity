@@ -122,9 +122,8 @@ func runIntegrityChecks() (res result) {
 
 	// defer building the result
 	var err error
-	var uploaded, downloaded, removed, pruned int64
+	var uploaded, downloaded, removed, prunable int64
 	var downloadedMBPS, uploadedMBPS float64
-	var pruneDuration time.Duration
 	var complete bool
 	defer func(start time.Time) {
 		res = result{
@@ -134,11 +133,10 @@ func runIntegrityChecks() (res result) {
 			Uploaded:   humanReadableSize(uploaded),
 			Downloaded: humanReadableSize(downloaded),
 			Removed:    humanReadableSize(removed),
-			Pruned:     humanReadableSize(pruned),
+			Prunable:   humanReadableSize(prunable),
 
 			DownloadSpeedMBPS: downloadedMBPS,
 			UploadSpeedMBPS:   uploadedMBPS,
-			PruneDurationStr:  pruneDuration.String(),
 
 			DatasetComplete: complete,
 		}
@@ -179,11 +177,25 @@ func runIntegrityChecks() (res result) {
 	downloadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 
 	// delete data
-	removed, pruned, pruneDuration, err = pruneDataset(size)
+	removed, err = pruneDataset(size)
 	if err != nil {
 		err = fmt.Errorf("failed to prune the dataset; %w", err)
 		return
 	}
+
+	// update redundancy
+	if err = withSaneTimeout(func(ctx context.Context) error {
+		res, err := bc.PrunableData(ctx)
+		if err != nil {
+			return err
+		}
+		prunable = int64(res.TotalPrunable)
+		return nil
+	}, nil); err != nil {
+		err = fmt.Errorf("failed to fetch prunable data; %w", err)
+		return
+	}
+
 	return
 }
 

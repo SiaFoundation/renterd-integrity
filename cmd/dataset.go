@@ -22,16 +22,6 @@ const (
 	dataExtension = ".data"
 
 	defaultChunkSize = int64(1 << 26) // 64 MiB
-
-	defaultPruneTimeout = 10 * time.Minute
-)
-
-var (
-	errConnectionRefused  = errors.New("connection refused")
-	errConnectionTimedOut = errors.New("connection timed out")
-	errInvalidMerkleProof = errors.New("host supplied invalid Merkle proof")
-	errNoRouteToHost      = errors.New("no route to host")
-	errNoSuchHost         = errors.New("no such host")
 )
 
 func ensureDataset(want int64) (added, removed int64, _ error) {
@@ -114,16 +104,11 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 	return
 }
 
-func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err error) {
+func pruneDataset(size int64) (removed int64, err error) {
 	entries, err := calculateRandomBatch(size)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, err
 	}
-
-	// set elapsed
-	defer func(start time.Time) {
-		elapsed = time.Since(start)
-	}(time.Now())
 
 	// remove the data
 	for _, entry := range entries {
@@ -133,43 +118,6 @@ func pruneDataset(size int64) (removed, pruned int64, elapsed time.Duration, err
 			return
 		}
 		removed += entry.Size
-	}
-
-	// prune the contracts
-	var prunable api.ContractsPrunableDataResponse
-	if err = withSaneTimeout(func(ctx context.Context) (err error) {
-		prunable, err = bc.PrunableData(ctx)
-		return
-	}, nil); err != nil {
-		return
-	}
-
-	for _, contract := range prunable.Contracts {
-		start := time.Now()
-		logger.Debugf("pruning contract %+v", contract)
-		if err = func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*defaultPruneTimeout)
-			defer cancel()
-
-			ppruned, remaining, err := wc.RHPPruneContract(ctx, contract.ID, defaultPruneTimeout)
-			if err != nil {
-				return err
-			}
-			pruned += int64(ppruned)
-
-			logger.Debugf("pruned %v bytes from contract %v, %v bytes remaining", ppruned, contract.ID, remaining)
-			return nil
-		}(); err != nil {
-			logger.Debugf("pruning contract %v failed after %v, err %v", contract.ID, time.Since(start), err)
-			if isErr(err, errConnectionRefused) ||
-				isErr(err, errConnectionTimedOut) ||
-				isErr(err, errInvalidMerkleProof) ||
-				isErr(err, errNoRouteToHost) ||
-				isErr(err, errNoSuchHost) {
-				continue
-			}
-			return
-		}
 	}
 	return
 }

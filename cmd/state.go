@@ -23,11 +23,10 @@ type (
 		Downloaded string `json:"downloaded,omitempty"`
 		Uploaded   string `json:"uploaded,omitempty"`
 		Removed    string `json:"removed,omitempty"`
-		Pruned     string `json:"pruned,omitempty"`
+		Prunable   string `json:"prunable,omitempty"`
 
 		DownloadSpeedMBPS float64 `json:"downloadSpeedMBPS,omitempty"`
 		UploadSpeedMBPS   float64 `json:"uploadSpeedMBPS,omitempty"`
-		PruneDurationStr  string  `json:"pruneDurationStr,omitempty"`
 
 		DatasetComplete bool       `json:"datasetComplete"`
 		Err             *resultErr `json:"error,omitempty"`
