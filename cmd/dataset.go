@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"go.sia.tech/renterd/api"
@@ -75,6 +76,8 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 			missing = cfg.MinFilesize
 		}
 
+		// calculate random file sizes to upload
+		var randomSizes []int64
 		for {
 			// calculate a random file size between our min and max
 			max := int64(math.Min(float64(missing), float64(cfg.MaxFilesize)))
@@ -86,18 +89,49 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 				size = int64(frand.Intn(int(max-min))) + min
 			}
 
-			// upload the file
-			_, err = uploadFile(size)
-			if err != nil {
-				return added, removed, err
-			}
-			added += size
+			// add to the list
+			randomSizes = append(randomSizes, size)
 
 			// break if necessary
 			missing -= size
 			if missing <= 0 {
 				break
 			}
+		}
+
+		var ulDone bool
+		var ulMu sync.Mutex
+		var fI int
+		for {
+			var wg sync.WaitGroup
+			for i := 0; i < 4; i++ {
+				if fI == len(randomSizes)-1 {
+					ulDone = true
+					break
+				}
+
+				wg.Add(1)
+				go func(fileSize int64) {
+					defer wg.Done()
+					_, ulErr := uploadFile(fileSize)
+					ulMu.Lock()
+					if ulErr != nil && err == nil {
+						err = ulErr
+					} else if ulErr == nil {
+						added += fileSize
+					}
+					ulMu.Unlock()
+				}(randomSizes[fI])
+				fI++
+			}
+			wg.Wait()
+
+			if ulDone {
+				break
+			}
+		}
+		if err != nil {
+			return added, removed, err
 		}
 	}
 
