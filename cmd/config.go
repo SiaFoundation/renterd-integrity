@@ -18,8 +18,9 @@ var (
 		WorkerAddr:  "http://localhost:9880/api/worker",
 		WorkerPassw: "test",
 
-		IntegrityCheckInterval: time.Hour,
-		IntegrityCheckCyclePct: 1, // 1% every hour
+		IntegrityCheckInterval:    time.Hour,
+		IntegrityCheckDownloadPct: 1, // 1% every hour
+		IntegrityCheckDeletePct:   1, // 1% every hour
 
 		DatasetSize: 10 << 30, // 10 GiB
 		MinFilesize: 1 << 20,  // 1 MiB
@@ -38,9 +39,10 @@ type (
 		WorkerAddr  string `yaml:"workerAddress"`
 		WorkerPassw string `yaml:"workerPassword"`
 
-		HealthCheckInterval    time.Duration `yaml:"healthCheckInterval"`
-		IntegrityCheckInterval time.Duration `yaml:"integrityCheckInterval"`
-		IntegrityCheckCyclePct float64       `yaml:"integrityCheckCyclePct"`
+		HealthCheckInterval       time.Duration `yaml:"healthCheckInterval"`
+		IntegrityCheckInterval    time.Duration `yaml:"integrityCheckInterval"`
+		IntegrityCheckDeletePct   float64       `yaml:"integrityCheckDeletePct"`
+		IntegrityCheckDownloadPct float64       `yaml:"integrityCheckDownloadPct"`
 
 		DatasetSize int64 `yaml:"datasetSize"`
 		MinFilesize int64 `yaml:"minFilesize"`

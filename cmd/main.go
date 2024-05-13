@@ -164,8 +164,8 @@ func runIntegrityChecks() (res result) {
 	uploadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 	complete = true
 
-	size := int64(cfg.IntegrityCheckCyclePct * float64(cfg.DatasetSize))
-	logger.Infof("checking integrity of %d%% of our dataset (%v)", int(cfg.IntegrityCheckCyclePct*100), humanReadableSize(size))
+	size := int64(cfg.IntegrityCheckDownloadPct * float64(cfg.DatasetSize))
+	logger.Infof("checking integrity of %d%% of our dataset (%v)", int(cfg.IntegrityCheckDownloadPct*100), humanReadableSize(size))
 
 	// check integrity of a portion of the dataset
 	start = time.Now()
@@ -177,6 +177,8 @@ func runIntegrityChecks() (res result) {
 	downloadedMBPS = mbps(downloaded, time.Since(start).Milliseconds())
 
 	// delete data
+	size = int64(cfg.IntegrityCheckDeletePct * float64(cfg.DatasetSize))
+	logger.Infof("deleting %d%% of our dataset (%v)", int(cfg.IntegrityCheckDeletePct*100), humanReadableSize(size))
 	removed, err = pruneDataset(size)
 	if err != nil {
 		err = fmt.Errorf("failed to prune the dataset; %w", err)

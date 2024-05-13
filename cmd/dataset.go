@@ -26,15 +26,18 @@ const (
 )
 
 func ensureDataset(want int64) (added, removed int64, _ error) {
+	logger.Infof("ensuring data set size matches %s", humanReadableSize(want))
+
 	// calculate size of the current set
 	got, err := calculateDatasetSize()
 	if err != nil {
 		return 0, 0, err
 	}
+	logger.Infof("current data set size: %s", humanReadableSize(got))
 
 	// remove excess data if necessary
 	if got > want {
-		logger.Infof("ensuring data set size matches %s - current size %s removing %s", humanReadableSize(want), humanReadableSize(got), humanReadableSize(got-want))
+		logger.Infof("removing %s", humanReadableSize(got-want))
 		toRemove, err := calculateRandomBatch(got - want)
 		if err != nil {
 			return 0, 0, err
