@@ -141,7 +141,7 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 	return
 }
 
-func pruneDataset(size int64) (removed int64, err error) {
+func pruneDataset(size int64) (removed int64, _ error) {
 	entries, err := calculateRandomBatch(size)
 	if err != nil {
 		return 0, err
@@ -149,11 +149,12 @@ func pruneDataset(size int64) (removed int64, err error) {
 
 	// remove the data
 	for _, entry := range entries {
-		if err = withSaneTimeout(func(ctx context.Context) (err error) {
-			return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false)
-		}, nil); err != nil {
-			return
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		if err := bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false); err != nil {
+			cancel()
+			return removed, err
 		}
+		cancel()
 		removed += entry.Size
 	}
 	return

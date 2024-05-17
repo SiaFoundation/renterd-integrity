@@ -181,7 +181,7 @@ func runIntegrityChecks() (res result) {
 	logger.Infof("deleting %d%% of our dataset (%v)", int(cfg.IntegrityCheckDeletePct*100), humanReadableSize(size))
 	removed, err = pruneDataset(size)
 	if err != nil {
-		err = fmt.Errorf("failed to prune the dataset; %w", err)
+		err = fmt.Errorf("failed to prune the dataset, removed %d; %w", removed, err)
 		return
 	}
 
