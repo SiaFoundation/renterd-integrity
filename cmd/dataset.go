@@ -44,7 +44,7 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 		}
 		for _, entry := range toRemove {
 			if err = withSaneTimeout(func(ctx context.Context) error {
-				return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false)
+				return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, api.DeleteObjectOptions{Batch: false})
 			}, nil); err != nil {
 				return
 			} else {
@@ -63,9 +63,13 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 
 		// fetch the redundancy settings
 		var rs api.RedundancySettings
-		if err = withSaneTimeout(func(ctx context.Context) (err error) {
-			rs, err = bc.RedundancySettings(ctx)
-			return
+		if err := withSaneTimeout(func(ctx context.Context) error {
+			us, err := bc.UploadSettings(ctx)
+			if err != nil {
+				return err
+			}
+			rs = us.Redundancy
+			return nil
 		}, nil); err != nil {
 			return 0, removed, err
 		}
@@ -150,7 +154,7 @@ func pruneDataset(size int64) (removed int64, _ error) {
 	// remove the data
 	for _, entry := range entries {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		if err := bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, false); err != nil {
+		if err := bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, api.DeleteObjectOptions{Batch: false}); err != nil {
 			cancel()
 			return removed, err
 		}
@@ -193,9 +197,13 @@ func calculateRandomBatch(size int64) (batch []api.ObjectMetadata, _ error) {
 
 // TODO: this fetches all entries, which is not ideal
 func fetchEntries() (entries []api.ObjectMetadata, err error) {
-	err = withSaneTimeout(func(ctx context.Context) (err error) {
-		entries, err = bc.SearchObjects(ctx, api.DefaultBucketName, cfg.WorkDir, 0, -1)
-		return
+	err = withSaneTimeout(func(ctx context.Context) error {
+		entries, err = bc.SearchObjects(ctx, api.DefaultBucketName, api.SearchObjectOptions{
+			Key:    cfg.WorkDir,
+			Offset: 0,
+			Limit:  -1,
+		})
+		return err
 	}, nil)
 	return
 }
@@ -291,7 +299,7 @@ func uploadFile(size int64) (path string, err error) {
 
 	// upload the file
 	err = withSaneTimeout(func(ctx context.Context) error {
-		_, err := wc.UploadObject(ctx, f, path)
+		_, err := wc.UploadObject(ctx, f, api.DefaultBucketName, path, api.UploadObjectOptions{})
 		return err
 	}, &totalSize)
 	return
@@ -325,7 +333,7 @@ func downloadFile(path string, size int64) (_ string, err error) {
 
 	// download the file
 	err = withSaneTimeout(func(ctx context.Context) error {
-		return wc.DownloadObject(ctx, f, path)
+		return wc.DownloadObject(ctx, f, api.DefaultBucketName, path, api.DownloadObjectOptions{})
 	}, &size)
 	if err != nil {
 		return "", err

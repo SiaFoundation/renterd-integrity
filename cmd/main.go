@@ -70,7 +70,7 @@ func main() {
 	if cfg.CleanStart {
 		logger.Infof("remove all files from %s/", cfg.WorkDir)
 		if err := withSaneTimeout(func(ctx context.Context) error {
-			return bc.DeleteObject(ctx, api.DefaultBucketName, cfg.WorkDir, true)
+			return bc.DeleteObject(ctx, api.DefaultBucketName, cfg.WorkDir, api.DeleteObjectOptions{Batch: true})
 		}, nil); err != nil && !strings.Contains(err.Error(), api.ErrObjectNotFound.Error()) {
 			logger.Fatal(err)
 		}
@@ -146,10 +146,15 @@ func runIntegrityChecks() (res result) {
 	}(time.Now())
 
 	// update redundancy
-	if err = withSaneTimeout(func(ctx context.Context) error {
-		rs, err = bc.RedundancySettings(ctx)
-		return err
-	}, nil); err != nil {
+	err = withSaneTimeout(func(ctx context.Context) error {
+		us, err := bc.UploadSettings(ctx)
+		if err != nil {
+			return err
+		}
+		rs = us.Redundancy
+		return nil
+	}, nil)
+	if err != nil {
 		err = fmt.Errorf("failed to refresh redundancy; %w", err)
 		return
 	}
