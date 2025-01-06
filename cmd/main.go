@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	defaultBucketName = "integrity"
 	defaultConfigFile = "config.yml"
 	defaultLogFile    = "checker.log"
 	defaultStateFile  = "integrity.json"
@@ -66,11 +67,17 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	// ensure bucket exists
+	err = bc.CreateBucket(context.Background(), defaultBucketName, api.CreateBucketOptions{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	// remove all files
 	if cfg.CleanStart {
 		logger.Infof("remove all files from %s/", cfg.WorkDir)
 		if err := withSaneTimeout(func(ctx context.Context) error {
-			return bc.DeleteObject(ctx, api.DefaultBucketName, cfg.WorkDir, api.DeleteObjectOptions{Batch: true})
+			return bc.RemoveObjects(ctx, defaultBucketName, cfg.WorkDir)
 		}, nil); err != nil && !strings.Contains(err.Error(), api.ErrObjectNotFound.Error()) {
 			logger.Fatal(err)
 		}

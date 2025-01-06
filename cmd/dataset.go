@@ -44,7 +44,7 @@ func ensureDataset(want int64) (added, removed int64, _ error) {
 		}
 		for _, entry := range toRemove {
 			if err = withSaneTimeout(func(ctx context.Context) error {
-				return bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, api.DeleteObjectOptions{Batch: false})
+				return bc.DeleteObject(ctx, defaultBucketName, entry.Key)
 			}, nil); err != nil {
 				return
 			} else {
@@ -154,7 +154,7 @@ func pruneDataset(size int64) (removed int64, _ error) {
 	// remove the data
 	for _, entry := range entries {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		if err := bc.DeleteObject(ctx, api.DefaultBucketName, entry.Name, api.DeleteObjectOptions{Batch: false}); err != nil {
+		if err := bc.DeleteObject(ctx, defaultBucketName, entry.Key); err != nil {
 			cancel()
 			return removed, err
 		}
@@ -198,12 +198,12 @@ func calculateRandomBatch(size int64) (batch []api.ObjectMetadata, _ error) {
 // TODO: this fetches all entries, which is not ideal
 func fetchEntries() (entries []api.ObjectMetadata, err error) {
 	err = withSaneTimeout(func(ctx context.Context) error {
-		entries, err = bc.SearchObjects(ctx, api.DefaultBucketName, api.SearchObjectOptions{
-			Key:    cfg.WorkDir,
-			Offset: 0,
-			Limit:  -1,
-		})
-		return err
+		res, err := bc.Objects(ctx, cfg.WorkDir, api.ListObjectOptions{Bucket: defaultBucketName})
+		if err != nil {
+			return err
+		}
+		entries = res.Objects
+		return nil
 	}, nil)
 	return
 }
@@ -299,7 +299,7 @@ func uploadFile(size int64) (path string, err error) {
 
 	// upload the file
 	err = withSaneTimeout(func(ctx context.Context) error {
-		_, err := wc.UploadObject(ctx, f, api.DefaultBucketName, path, api.UploadObjectOptions{})
+		_, err := wc.UploadObject(ctx, f, defaultBucketName, path, api.UploadObjectOptions{})
 		return err
 	}, &totalSize)
 	return
@@ -333,7 +333,7 @@ func downloadFile(path string, size int64) (_ string, err error) {
 
 	// download the file
 	err = withSaneTimeout(func(ctx context.Context) error {
-		return wc.DownloadObject(ctx, f, api.DefaultBucketName, path, api.DownloadObjectOptions{})
+		return wc.DownloadObject(ctx, f, defaultBucketName, path, api.DownloadObjectOptions{})
 	}, &size)
 	if err != nil {
 		return "", err
@@ -375,15 +375,15 @@ func checkIntegrity(size int64) (downloaded int64, err error) {
 
 	for _, entry := range toDownload {
 		var hash string
-		hash, err = downloadFile(entry.Name, entry.Size)
+		hash, err = downloadFile(entry.Key, entry.Size)
 		if err != nil {
 			return
 		}
 
 		downloaded += entry.Size
-		expected := strings.TrimSuffix(filepath.Base(entry.Name), dataExtension)
+		expected := strings.TrimSuffix(filepath.Base(entry.Key), dataExtension)
 		if hash != expected {
-			err = fmt.Errorf("hash mismatch for file '%v', expected '%v', got '%v'; %w", entry.Name, expected, hash, errIntegrity)
+			err = fmt.Errorf("hash mismatch for file '%v', expected '%v', got '%v'; %w", entry.Key, expected, hash, errIntegrity)
 			logger.Error(err)
 			return
 		}
