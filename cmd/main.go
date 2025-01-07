@@ -69,7 +69,7 @@ func main() {
 
 	// ensure bucket exists
 	err = bc.CreateBucket(context.Background(), defaultBucketName, api.CreateBucketOptions{})
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), api.ErrBucketExists.Error()) {
 		logger.Fatal(err)
 	}
 
